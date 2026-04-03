@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/nextlevelbuilder/goclaw/internal/agent"
 	"github.com/nextlevelbuilder/goclaw/internal/bootstrap"
 	"github.com/nextlevelbuilder/goclaw/internal/bus"
 	"github.com/nextlevelbuilder/goclaw/internal/config"
@@ -114,16 +115,7 @@ func setupToolRegistry(
 		toolsReg.Register(browser.NewBrowserTool(browserMgr))
 	}
 
-	// Web tools (web_search + web_fetch)
-	webSearchTool := tools.NewWebSearchTool(tools.WebSearchConfig{
-		BraveEnabled: cfg.Tools.Web.Brave.Enabled,
-		BraveAPIKey:  cfg.Tools.Web.Brave.APIKey,
-		DDGEnabled:   cfg.Tools.Web.DuckDuckGo.Enabled,
-	})
-	if webSearchTool != nil {
-		toolsReg.Register(webSearchTool)
-		slog.Info("web_search tool enabled")
-	}
+	// Web tools (web_search is registered later, after DB secrets + system config hydration)
 	webFetchTool = tools.NewWebFetchTool(tools.WebFetchConfig{
 		Policy:         cfg.Tools.WebFetch.Policy,
 		AllowedDomains: cfg.Tools.WebFetch.AllowedDomains,
@@ -276,6 +268,41 @@ func setupToolRegistry(
 
 // wireTracingAndCron sets up tracing collector, snapshot worker, and cron config
 // on an already-created store set. Shared between PG and SQLite build variants.
+func buildWebSearchTool(cfg *config.Config) *tools.WebSearchTool {
+	return tools.NewWebSearchTool(tools.WebSearchConfig{
+		BraveEnabled:     cfg.Tools.Web.Brave.Enabled,
+		BraveAPIKey:      cfg.Tools.Web.Brave.APIKey,
+		BraveMaxResults:  cfg.Tools.Web.Brave.MaxResults,
+		TavilyEnabled:    cfg.Tools.Web.Tavily.Enabled,
+		TavilyAPIKey:     cfg.Tools.Web.Tavily.APIKey,
+		TavilyMaxResults: cfg.Tools.Web.Tavily.MaxResults,
+		DDGEnabled:       cfg.Tools.Web.DuckDuckGo.Enabled,
+		DDGMaxResults:    cfg.Tools.Web.DuckDuckGo.MaxResults,
+	})
+}
+
+func reloadWebSearchTool(toolsReg *tools.Registry, cfg *config.Config, agentRouter *agent.Router) {
+	webSearchTool := buildWebSearchTool(cfg)
+	if webSearchTool == nil {
+		toolsReg.Unregister("web_search")
+		slog.Info("web_search tool disabled", "brave", false, "tavily", false, "duckduckgo", false)
+		if agentRouter != nil {
+			agentRouter.InvalidateAll()
+		}
+		return
+	}
+	toolsReg.Register(webSearchTool)
+	if agentRouter != nil {
+		agentRouter.InvalidateAll()
+	}
+
+	slog.Info("web_search tool reloaded",
+		"brave", cfg.Tools.Web.Brave.Enabled && cfg.Tools.Web.Brave.APIKey != "",
+		"tavily", cfg.Tools.Web.Tavily.Enabled && cfg.Tools.Web.Tavily.APIKey != "",
+		"duckduckgo", cfg.Tools.Web.DuckDuckGo.Enabled,
+	)
+}
+
 func wireTracingAndCron(
 	cfg *config.Config,
 	stores *store.Stores,

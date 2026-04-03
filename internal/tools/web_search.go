@@ -15,6 +15,7 @@ const (
 	maxSearchCount       = 10
 	searchTimeoutSeconds = 30
 	braveSearchEndpoint  = "https://api.search.brave.com/res/v1/web/search"
+	tavilySearchEndpoint = "https://api.tavily.com/search"
 	webSearchUserAgent   = "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_7_2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 )
 
@@ -68,29 +69,63 @@ func normalizeFreshness(value string) string {
 
 // WebSearchTool implements the web_search tool matching TS src/agents/tools/web-search.ts.
 type WebSearchTool struct {
-	providers []SearchProvider
-	cache     *webCache
+	providers          []searchProviderEntry
+	defaultSearchCount int
+	cache              *webCache
+}
+
+type searchProviderEntry struct {
+	provider             SearchProvider
+	maxResults           int
+	supportsSearchParams bool
 }
 
 // WebSearchConfig holds configuration for the web search tool.
 type WebSearchConfig struct {
-	BraveAPIKey     string
-	BraveEnabled    bool
-	BraveMaxResults int
-	DDGEnabled      bool
-	DDGMaxResults   int
-	CacheTTL        time.Duration
+	BraveAPIKey      string
+	BraveEnabled     bool
+	BraveMaxResults  int
+	TavilyAPIKey     string
+	TavilyEnabled    bool
+	TavilyMaxResults int
+	DDGEnabled       bool
+	DDGMaxResults    int
+	CacheTTL         time.Duration
 }
 
 func NewWebSearchTool(cfg WebSearchConfig) *WebSearchTool {
-	var providers []SearchProvider
+	var providers []searchProviderEntry
+	defaultCount := defaultSearchCount
 
-	// Priority: Brave > DuckDuckGo (matching TS)
+	// Priority: Brave > Tavily > DuckDuckGo
 	if cfg.BraveEnabled && cfg.BraveAPIKey != "" {
-		providers = append(providers, newBraveSearchProvider(cfg.BraveAPIKey))
+		braveMax := clampSearchCount(cfg.BraveMaxResults)
+		providers = append(providers, searchProviderEntry{
+			provider:             newBraveSearchProvider(cfg.BraveAPIKey),
+			maxResults:           braveMax,
+			supportsSearchParams: true,
+		})
+		defaultCount = braveMax
+	}
+	if cfg.TavilyEnabled && cfg.TavilyAPIKey != "" {
+		tavilyMax := clampSearchCount(cfg.TavilyMaxResults)
+		providers = append(providers, searchProviderEntry{
+			provider:   newTavilySearchProvider(cfg.TavilyAPIKey),
+			maxResults: tavilyMax,
+		})
+		if len(providers) == 1 {
+			defaultCount = tavilyMax
+		}
 	}
 	if cfg.DDGEnabled {
-		providers = append(providers, newDuckDuckGoSearchProvider())
+		ddgMax := clampSearchCount(cfg.DDGMaxResults)
+		providers = append(providers, searchProviderEntry{
+			provider:   newDuckDuckGoSearchProvider(),
+			maxResults: ddgMax,
+		})
+		if len(providers) == 1 {
+			defaultCount = ddgMax
+		}
 	}
 
 	if len(providers) == 0 {
@@ -103,8 +138,9 @@ func NewWebSearchTool(cfg WebSearchConfig) *WebSearchTool {
 	}
 
 	return &WebSearchTool{
-		providers: providers,
-		cache:     newWebCache(defaultCacheMaxEntries, ttl),
+		providers:          providers,
+		defaultSearchCount: defaultCount,
+		cache:              newWebCache(defaultCacheMaxEntries, ttl),
 	}
 }
 
@@ -155,9 +191,12 @@ func (t *WebSearchTool) Execute(ctx context.Context, args map[string]any) *Resul
 		return ErrorResult("query is required")
 	}
 
-	count := defaultSearchCount
-	if c, ok := args["count"].(float64); ok && int(c) >= 1 && int(c) <= maxSearchCount {
-		count = int(c)
+	count := t.defaultSearchCount
+	if count <= 0 {
+		count = defaultSearchCount
+	}
+	if c, ok := args["count"].(float64); ok {
+		count = clampSearchCount(int(c))
 	}
 
 	country, _ := args["country"].(string)
@@ -165,7 +204,7 @@ func (t *WebSearchTool) Execute(ctx context.Context, args map[string]any) *Resul
 	uiLang, _ := args["ui_lang"].(string)
 	freshness, _ := args["freshness"].(string)
 
-	params := searchParams{
+	baseParams := searchParams{
 		Query:      query,
 		Count:      count,
 		Country:    country,
@@ -174,25 +213,34 @@ func (t *WebSearchTool) Execute(ctx context.Context, args map[string]any) *Resul
 		Freshness:  freshness,
 	}
 
-	// Check cache (scoped per channel to prevent cross-channel cache poisoning)
-	channel := ToolChannelFromCtx(ctx)
-	cacheKey := fmt.Sprintf("%s:%s", channel, buildSearchCacheKey(params))
-	if cached, ok := t.cache.get(cacheKey); ok {
-		slog.Debug("web_search cache hit", "query", query)
-		return NewResult(cached)
-	}
-
 	// Try providers in order (first success wins)
 	var lastErr error
-	for _, provider := range t.providers {
-		results, err := provider.Search(ctx, params)
+	for _, entry := range t.providers {
+		params := baseParams
+		params.Count = min(params.Count, entry.maxResults)
+		if !entry.supportsSearchParams {
+			params.Country = ""
+			params.SearchLang = ""
+			params.UILang = ""
+			params.Freshness = ""
+		}
+
+		// Check cache (scoped per channel to prevent cross-channel cache poisoning)
+		channel := ToolChannelFromCtx(ctx)
+		cacheKey := fmt.Sprintf("%s:%s:%s", channel, entry.provider.Name(), buildSearchCacheKey(params))
+		if cached, ok := t.cache.get(cacheKey); ok {
+			slog.Debug("web_search cache hit", "query", query, "provider", entry.provider.Name())
+			return NewResult(cached)
+		}
+
+		results, err := entry.provider.Search(ctx, params)
 		if err != nil {
-			slog.Warn("web_search provider failed", "provider", provider.Name(), "error", err)
+			slog.Warn("web_search provider failed", "provider", entry.provider.Name(), "error", err)
 			lastErr = err
 			continue
 		}
 
-		formatted := formatSearchResults(query, results, provider.Name())
+		formatted := formatSearchResults(query, results, entry.provider.Name())
 		wrapped := wrapExternalContent(formatted, "Web Search", false)
 
 		t.cache.set(cacheKey, wrapped)
@@ -200,7 +248,7 @@ func (t *WebSearchTool) Execute(ctx context.Context, args map[string]any) *Resul
 	}
 
 	if lastErr != nil {
-		return ErrorResult(fmt.Sprintf("all search providers failed: %v", lastErr))
+		return ErrorResult("all search providers failed")
 	}
 	return ErrorResult("no search providers configured")
 }
@@ -246,4 +294,22 @@ func truncateStr(s string, max int) string {
 		return s
 	}
 	return s[:max] + "..."
+}
+
+func clampSearchCount(count int) int {
+	switch {
+	case count < 1:
+		return defaultSearchCount
+	case count > maxSearchCount:
+		return maxSearchCount
+	default:
+		return count
+	}
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }

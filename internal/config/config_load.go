@@ -47,6 +47,7 @@ func Default() *Config {
 		},
 		Tools: ToolsConfig{
 			Web: WebToolsConfig{
+				Tavily:     TavilyConfig{Enabled: false, MaxResults: 5},
 				DuckDuckGo: DuckDuckGoConfig{Enabled: true, MaxResults: 5},
 			},
 			Browser: BrowserToolConfig{
@@ -109,6 +110,7 @@ func (c *Config) applyEnvOverrides() {
 	envStr("GOCLAW_BAILIAN_API_KEY", &c.Providers.Bailian.APIKey)
 	envStr("GOCLAW_ZAI_API_KEY", &c.Providers.Zai.APIKey)
 	envStr("GOCLAW_ZAI_CODING_API_KEY", &c.Providers.ZaiCoding.APIKey)
+	envStr("GOCLAW_TAVILY_API_KEY", &c.Tools.Web.Tavily.APIKey)
 	envStr("GOCLAW_OLLAMA_HOST", &c.Providers.Ollama.Host)
 	envStr("GOCLAW_OLLAMA_CLOUD_API_KEY", &c.Providers.OllamaCloud.APIKey)
 	envStr("GOCLAW_OLLAMA_CLOUD_API_BASE", &c.Providers.OllamaCloud.APIBase)
