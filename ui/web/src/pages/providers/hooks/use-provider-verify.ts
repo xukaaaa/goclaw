@@ -5,7 +5,7 @@ interface VerifyResult {
   valid: boolean;
   error?: string;
   dimensions?: number;
-  dimension_mismatch?: boolean; // true when output dims != 1536
+  dimension_mismatch?: boolean; // true when output dims != required embedding dimensions
 }
 
 export function useProviderVerify() {

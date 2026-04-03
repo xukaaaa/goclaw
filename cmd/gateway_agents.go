@@ -124,7 +124,7 @@ func buildEmbeddingProvider(
 	}
 
 	// Dimension truncation: default to RequiredMemoryEmbeddingDimensions to match pgvector schema.
-	// Models that natively output 1536 ignore the parameter; models with larger native dims get truncated.
+	// Models that natively output the required size ignore the parameter; larger native dims get truncated.
 	dims := store.RequiredMemoryEmbeddingDimensions
 	if es != nil && es.Dimensions > 0 && es.Dimensions != store.RequiredMemoryEmbeddingDimensions {
 		slog.Warn("ignoring incompatible provider embedding dimensions for memory schema",

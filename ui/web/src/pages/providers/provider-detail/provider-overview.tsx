@@ -782,14 +782,14 @@ export function ProviderOverview({ provider, onUpdate }: ProviderOverviewProps) 
                   id="embModel"
                   value={embModel}
                   onChange={(e) => setEmbModel(e.target.value)}
-                  placeholder="text-embedding-3-small"
+                  placeholder="text-embedding-3-large"
                   className="text-base md:text-sm"
                 />
               </div>
 
               <div className="space-y-2">
                 <Label>{t("embedding.dimensions")}</Label>
-                <p className="text-sm text-muted-foreground">1536</p>
+                <p className="text-sm text-muted-foreground">3072</p>
                 <p className="text-xs text-muted-foreground">{t("embedding.dimensionsHint")}</p>
               </div>
 

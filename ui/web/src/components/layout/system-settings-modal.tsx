@@ -20,37 +20,16 @@ import { useProviders } from "@/pages/providers/hooks/use-providers";
 import { useHttp } from "@/hooks/use-ws";
 import { toast } from "@/stores/use-toast-store";
 
-// Curated 1536-dimension embedding models per provider type.
-// Verified 1536d embedding models per provider type.
-// Only providers with confirmed 1536-dimension output are listed.
+// Curated embedding models per provider type for the required 3072-dimension schema.
 const EMBEDDING_MODELS: Record<string, { id: string; name: string }[]> = {
-  // OpenAI — native 1536d
   openai_compat: [
-    { id: "text-embedding-3-small", name: "text-embedding-3-small (1536d)" },
-    { id: "text-embedding-3-large", name: "text-embedding-3-large (3072d → 1536 via dimensions)" },
-    { id: "text-embedding-ada-002", name: "text-embedding-ada-002 (1536d)" },
+    { id: "text-embedding-3-large", name: "text-embedding-3-large (3072d native)" },
   ],
-  // OpenRouter — proxied OpenAI models
   openrouter: [
-    { id: "openai/text-embedding-3-small", name: "openai/text-embedding-3-small (1536d)" },
-    { id: "openai/text-embedding-3-large", name: "openai/text-embedding-3-large (3072d → 1536)" },
-    { id: "openai/text-embedding-ada-002", name: "openai/text-embedding-ada-002 (1536d)" },
+    { id: "openai/text-embedding-3-large", name: "openai/text-embedding-3-large (3072d native)" },
   ],
-  // Gemini — gemini-embedding-001 (3072d native, truncate to 1536 via dimensions param)
   gemini_native: [
-    { id: "gemini-embedding-001", name: "gemini-embedding-001 (3072d → 1536 via dimensions)" },
-  ],
-  // Mistral — codestral-embed defaults to 1536d (MRL)
-  mistral: [
-    { id: "codestral-embed", name: "codestral-embed (1536d default)" },
-  ],
-  // DashScope/Qwen — text-embedding-v3 (custom dimensions support)
-  dashscope: [
-    { id: "text-embedding-v3", name: "text-embedding-v3 (1536 via dimensions)" },
-  ],
-  // Cohere — embed-v4 native 1536d
-  cohere: [
-    { id: "embed-v4", name: "embed-v4 (1536d native)" },
+    { id: "gemini-embedding-001", name: "gemini-embedding-001 (3072d native)" },
   ],
 };
 // Fallback for unlisted provider types — no curated models
@@ -193,8 +172,7 @@ export function SystemSettingsModal({ open, onOpenChange }: SystemSettingsModalP
 
   const handleVerifyEmb = () => {
     if (!selectedEmbProviderData) return;
-    // Always request 1536 dims — pgvector schema requires vector(1536).
-    verifyEmbedding(selectedEmbProviderData.id, embModel.trim() || undefined, 1536);
+    verifyEmbedding(selectedEmbProviderData.id, embModel.trim() || undefined, 3072);
   };
 
   const handleSave = async () => {

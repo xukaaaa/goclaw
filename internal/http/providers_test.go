@@ -98,15 +98,15 @@ func TestProvidersHandlerCreateRejectsIncompatibleEmbeddingDimensions(t *testing
 	if w.Code != http.StatusBadRequest {
 		t.Fatalf("status code = %d, want %d", w.Code, http.StatusBadRequest)
 	}
-	if !strings.Contains(w.Body.String(), "1536") {
-		t.Fatalf("response body = %q, want mention of 1536", w.Body.String())
+	if !strings.Contains(w.Body.String(), "3072") {
+		t.Fatalf("response body = %q, want mention of 3072", w.Body.String())
 	}
 	if len(providerStore.providers) != 0 {
 		t.Fatalf("provider store mutated on invalid create: %#v", providerStore.providers)
 	}
 }
 
-func TestProvidersHandlerCreateAllows1536EmbeddingDimensions(t *testing.T) {
+func TestProvidersHandlerCreateAllows3072EmbeddingDimensions(t *testing.T) {
 	token := setupProvidersAdminToken(t)
 	providerStore := newMockProviderStore()
 	handler := NewProvidersHandler(providerStore, newMockSecretsStore(), nil, "")
@@ -123,7 +123,7 @@ func TestProvidersHandlerCreateAllows1536EmbeddingDimensions(t *testing.T) {
 			"embedding": {
 				"enabled": true,
 				"model": "gemini-embedding-001",
-				"dimensions": 1536
+				"dimensions": 3072
 			}
 		}
 	}`
@@ -150,7 +150,7 @@ func TestProvidersHandlerUpdateRejectsIncompatibleEmbeddingDimensions(t *testing
 		ProviderType: store.ProviderOpenAICompat,
 		APIBase:      "https://api.voyageai.com/v1",
 		Enabled:      true,
-		Settings:     json.RawMessage(`{"embedding":{"enabled":true,"model":"voyage-4-nano","dimensions":1536}}`),
+		Settings:     json.RawMessage(`{"embedding":{"enabled":true,"model":"voyage-4-nano","dimensions":3072}}`),
 	}
 	if err := providerStore.CreateProvider(context.Background(), provider); err != nil {
 		t.Fatalf("CreateProvider() error = %v", err)
@@ -183,7 +183,7 @@ func TestProvidersHandlerUpdateRejectsIncompatibleEmbeddingDimensions(t *testing
 		t.Fatalf("GetProvider() error = %v", err)
 	}
 	es := store.ParseEmbeddingSettings(current.Settings)
-	if es == nil || es.Dimensions != 1536 {
-		t.Fatalf("embedding dimensions = %+v, want 1536 preserved", es)
+	if es == nil || es.Dimensions != 3072 {
+		t.Fatalf("embedding dimensions = %+v, want 3072 preserved", es)
 	}
 }

@@ -32,12 +32,12 @@ func (s *PGSkillStore) SearchByEmbedding(ctx context.Context, embedding []float3
 	orderN := nextParam
 	limitN := orderN + 1
 	q := fmt.Sprintf(`SELECT name, slug, COALESCE(description, ''), version, file_path,
-			1 - (embedding <=> $1::vector) AS score
+			1 - (%s <=> %s) AS score
 		FROM skills
 		WHERE status = 'active' AND enabled = true AND embedding IS NOT NULL
 		  AND visibility != 'private'%s
-		ORDER BY embedding <=> $%d::vector
-		LIMIT $%d`, tenantCond, orderN, limitN)
+		ORDER BY %s <=> %s
+		LIMIT $%d`, halfvecExpr("embedding"), halfvecCast("$1"), tenantCond, halfvecExpr("embedding"), halfvecCast(fmt.Sprintf("$%d", orderN)), limitN)
 
 	args := append([]any{vecStr}, tcArgs...)
 	args = append(args, vecStr, limit)

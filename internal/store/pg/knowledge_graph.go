@@ -299,10 +299,10 @@ func (s *PGKnowledgeGraphStore) vectorSearchEntities(ctx context.Context, embedd
 	q := fmt.Sprintf(`
 		SELECT id, agent_id, user_id, external_id, name, entity_type, description,
 		       properties, source_id, confidence, created_at, updated_at,
-		       1 - (embedding <=> $%d::vector) AS score
+		       1 - (%s <=> %s) AS score
 		FROM kg_entities
 		WHERE %s
-		ORDER BY embedding <=> $%d::vector LIMIT $%d`, idx, where, idx, idx+1)
+		ORDER BY %s <=> %s LIMIT $%d`, halfvecExpr("embedding"), halfvecCast(fmt.Sprintf("$%d", idx)), where, halfvecExpr("embedding"), halfvecCast(fmt.Sprintf("$%d", idx)), idx+1)
 
 	rows, err := s.db.QueryContext(ctx, q, args...)
 	if err != nil {

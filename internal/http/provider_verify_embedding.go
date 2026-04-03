@@ -16,7 +16,7 @@ import (
 //
 //	POST /v1/providers/{id}/verify-embedding
 //	Body: {"model": "text-embedding-3-small"}  (optional, falls back to settings.embedding.model)
-//	Response: {"valid": true, "dimensions": 1536} or {"valid": false, "error": "..."}
+//	Response: {"valid": true, "dimensions": 3072} or {"valid": false, "error": "..."}
 func (h *ProvidersHandler) handleVerifyEmbedding(w http.ResponseWriter, r *http.Request) {
 	locale := extractLocale(r)
 	id, err := uuid.Parse(r.PathValue("id"))
@@ -67,12 +67,15 @@ func (h *ProvidersHandler) handleVerifyEmbedding(w http.ResponseWriter, r *http.
 	ep := memory.NewOpenAIEmbeddingProvider(p.Name, p.APIKey, apiBase, model)
 
 	// Apply dimension truncation: request body → provider settings → none.
-	// Clamp to reasonable range to avoid sending absurd values upstream.
 	truncDims := req.Dimensions
 	if truncDims <= 0 && es != nil && es.Dimensions > 0 {
 		truncDims = es.Dimensions
 	}
-	if truncDims > 0 && truncDims <= 8192 {
+	if truncDims > 0 && truncDims != store.RequiredMemoryEmbeddingDimensions {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "embedding.dimensions must match required memory dimensions"})
+		return
+	}
+	if truncDims == store.RequiredMemoryEmbeddingDimensions {
 		ep.WithDimensions(truncDims)
 	}
 
@@ -90,7 +93,7 @@ func (h *ProvidersHandler) handleVerifyEmbedding(w http.ResponseWriter, r *http.
 		dims = len(vectors[0])
 	}
 	result := map[string]any{"valid": true, "dimensions": dims}
-	if dims > 0 && dims != 1536 {
+	if dims > 0 && dims != store.RequiredMemoryEmbeddingDimensions {
 		result["dimension_mismatch"] = true
 	}
 	writeJSON(w, http.StatusOK, result)

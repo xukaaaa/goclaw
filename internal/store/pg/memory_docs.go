@@ -478,3 +478,11 @@ func vectorToString(v []float32) string {
 	buf = append(buf, ']')
 	return string(buf)
 }
+
+func halfvecCast(param string) string {
+	return fmt.Sprintf("%s::halfvec(%d)", param, store.RequiredMemoryEmbeddingDimensions)
+}
+
+func halfvecExpr(column string) string {
+	return fmt.Sprintf("(%s::halfvec(%d))", column, store.RequiredMemoryEmbeddingDimensions)
+}

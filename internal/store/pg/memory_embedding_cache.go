@@ -60,7 +60,7 @@ func (s *PGMemoryStore) lookupEmbeddingCache(ctx context.Context, hashes []strin
 }
 
 // writeEmbeddingCache batch-upserts embedding cache entries.
-// Gracefully skips on dimension mismatch (schema uses vector(1536)).
+// Gracefully skips on dimension mismatch with the current fixed pgvector schema.
 func (s *PGMemoryStore) writeEmbeddingCache(ctx context.Context, entries []embeddingCacheEntry, provider, model string) error {
 	if len(entries) == 0 {
 		return nil

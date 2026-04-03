@@ -146,11 +146,11 @@ func (s *PGMemoryStore) vectorSearch(ctx context.Context, embedding []float32, a
 		orderN := 4 + len(tcArgs)
 		limitN := orderN + 1
 		q = fmt.Sprintf(`SELECT path, start_line, end_line, text, user_id,
-				1 - (embedding <=> $1::vector) AS score
+				1 - (%s <=> %s) AS score
 			FROM memory_chunks
 			WHERE agent_id = $2 AND embedding IS NOT NULL
 			AND (user_id IS NULL OR user_id = $3)%s
-			ORDER BY embedding <=> $%d::vector LIMIT $%d`, tc, orderN, limitN)
+			ORDER BY %s <=> %s LIMIT $%d`, halfvecExpr("embedding"), halfvecCast("$1"), tc, halfvecExpr("embedding"), halfvecCast(fmt.Sprintf("$%d", orderN)), limitN)
 		args = append([]any{vecStr, agentID, userID}, tcArgs...)
 		args = append(args, vecStr, limit)
 	} else {
@@ -163,11 +163,11 @@ func (s *PGMemoryStore) vectorSearch(ctx context.Context, embedding []float32, a
 		orderN := 3 + len(tcArgs)
 		limitN := orderN + 1
 		q = fmt.Sprintf(`SELECT path, start_line, end_line, text, user_id,
-				1 - (embedding <=> $1::vector) AS score
+				1 - (%s <=> %s) AS score
 			FROM memory_chunks
 			WHERE agent_id = $2 AND embedding IS NOT NULL
 			AND user_id IS NULL%s
-			ORDER BY embedding <=> $%d::vector LIMIT $%d`, tc, orderN, limitN)
+			ORDER BY %s <=> %s LIMIT $%d`, halfvecExpr("embedding"), halfvecCast("$1"), tc, halfvecExpr("embedding"), halfvecCast(fmt.Sprintf("$%d", orderN)), limitN)
 		args = append([]any{vecStr, agentID}, tcArgs...)
 		args = append(args, vecStr, limit)
 	}
