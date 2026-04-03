@@ -166,6 +166,7 @@ func runGateway() {
 	setupMemoryEmbeddings(pgStores, providerRegistry)
 
 	loadBootstrapFiles(pgStores, workspace, agentCfg)
+	reloadWebSearchTool(toolsReg, cfg, nil)
 
 	// Subagent system
 	subagentMgr := setupSubagents(providerRegistry, cfg, msgBus, toolsReg, workspace, sandboxMgr)
@@ -1044,6 +1045,28 @@ func runGateway() {
 			return
 		}
 		webFetchTool.UpdatePolicy(updatedCfg.Tools.WebFetch.Policy, updatedCfg.Tools.WebFetch.AllowedDomains, updatedCfg.Tools.WebFetch.BlockedDomains)
+	})
+
+	// Reload web_search providers on config changes via pub/sub.
+	msgBus.Subscribe("websearch-config-reload", func(evt bus.Event) {
+		if evt.Name != bus.TopicConfigChanged {
+			return
+		}
+		updatedCfg, ok := evt.Payload.(*config.Config)
+		if !ok {
+			return
+		}
+		if pgStores.ConfigSecrets != nil {
+			if secrets, err := pgStores.ConfigSecrets.GetAll(context.Background()); err == nil {
+				if len(secrets) > 0 {
+					updatedCfg.ApplyDBSecrets(secrets)
+				}
+			} else {
+				slog.Warn("web_search config reload could not load DB secrets", "error", err)
+			}
+		}
+		updatedCfg.ApplyEnvOverrides()
+		reloadWebSearchTool(toolsReg, updatedCfg, agentRouter)
 	})
 
 	// Reload TTS providers on config changes via pub/sub.

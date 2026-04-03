@@ -421,10 +421,17 @@ type ToolPolicySpec struct {
 
 type WebToolsConfig struct {
 	Brave      BraveConfig      `json:"brave"`
+	Tavily     TavilyConfig     `json:"tavily"`
 	DuckDuckGo DuckDuckGoConfig `json:"duckduckgo"`
 }
 
 type BraveConfig struct {
+	Enabled    bool   `json:"enabled"`
+	APIKey     string `json:"api_key"`
+	MaxResults int    `json:"max_results"`
+}
+
+type TavilyConfig struct {
 	Enabled    bool   `json:"enabled"`
 	APIKey     string `json:"api_key"`
 	MaxResults int    `json:"max_results"`
