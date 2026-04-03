@@ -55,10 +55,15 @@ export function ToolsWebSection({ data, onSave, saving }: Props) {
     const toSave: ToolsData = { ...draft };
     const web = { ...(toSave.web ?? {}) };
     const brave = { ...(web.brave ?? {}) };
+    const tavily = { ...(web.tavily ?? {}) };
     if (isSecret(brave.api_key)) {
       delete brave.api_key;
     }
+    if (isSecret(tavily.api_key)) {
+      delete tavily.api_key;
+    }
     web.brave = brave;
+    web.tavily = tavily;
     toSave.web = web;
     onSave(toSave);
   };
@@ -68,6 +73,7 @@ export function ToolsWebSection({ data, onSave, saving }: Props) {
   const web = draft.web ?? {};
   const ddg = web.duckduckgo ?? {};
   const brave = web.brave ?? {};
+  const tavily = web.tavily ?? {};
   const webFetch = draft.web_fetch ?? {};
   const browser = draft.browser ?? {};
 
@@ -134,6 +140,44 @@ export function ToolsWebSection({ data, onSave, saving }: Props) {
                 />
                 {isSecret(brave.api_key) && (
                   <p className="text-xs text-muted-foreground">{t("tools.braveApiKeyManaged")}</p>
+                )}
+              </div>
+            )}
+          </div>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label>Tavily Search</Label>
+              <Switch
+                checked={tavily.enabled ?? false}
+                onCheckedChange={(v) => updateNested("web", { tavily: { ...tavily, enabled: v } })}
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label className="text-xs text-muted-foreground">{t("tools.maxResults")}</Label>
+              <Input
+                type="number"
+                className="text-base md:text-sm"
+                value={tavily.max_results ?? ""}
+                onChange={(e) => updateNested("web", { tavily: { ...tavily, max_results: Number(e.target.value) } })}
+                placeholder="5"
+                min={1}
+              />
+            </div>
+            {tavily.enabled && (
+              <div className="grid gap-1.5">
+                <InfoLabel tip={t("tools.tavilyApiKeyTip")}>{t("tools.tavilyApiKey")}</InfoLabel>
+                <Input
+                  type="password"
+                  className="text-base md:text-sm"
+                  value={isSecret(tavily.api_key) ? "" : (tavily.api_key ?? "")}
+                  onChange={(e) =>
+                    updateNested("web", { tavily: { ...tavily, api_key: e.target.value } })
+                  }
+                  placeholder={t("tools.tavilyApiKeyPlaceholder")}
+                  autoComplete="off"
+                />
+                {isSecret(tavily.api_key) && (
+                  <p className="text-xs text-muted-foreground">{t("tools.tavilyApiKeyManaged")}</p>
                 )}
               </div>
             )}
