@@ -144,20 +144,18 @@
       "saving": "Đang lưu..."
     },
     "searchChain": {
-      "title": "Chuỗi nhà cung cấp tìm kiếm web",
-      "description": "Kéo để sắp xếp lại nhà cung cấp tìm kiếm. Nhà cung cấp đầu tiên được bật với API key hợp lệ sẽ được thử trước.",
+      "title": "Cài đặt tìm kiếm web",
+      "description": "Cấu hình Tavily cho công cụ web_search tích hợp.",
       "maxResults": "Số kết quả tối đa",
-      "locked": "Dự phòng luôn bật",
       "cancel": "Hủy",
       "save": "Lưu",
       "saving": "Đang lưu...",
       "providers": {
-        "exa": "Exa",
-        "tavily": "Tavily",
-        "brave": "Brave Search",
-        "duckduckgo": "DuckDuckGo"
+        "tavily": "Tavily"
       },
+      "providerHint": "Tavily là provider duy nhất được web_search sử dụng.",
       "apiKey": "API Key",
+      "apiKeyHint": "Chỉ nhập giá trị khi muốn thiết lập hoặc thay thế key đã lưu.",
       "apiKeySet": "✓ Đã có key",
       "apiKeyChange": "Thay đổi",
       "apiKeyPlaceholder": "Nhập API key",
@@ -223,7 +221,7 @@
       "list_files": "Liệt kê tệp và thư mục trong một đường dẫn trong workspace",
       "edit": "Áp dụng chỉnh sửa tìm-và-thay-thế vào tệp hiện có mà không cần ghi lại toàn bộ",
       "exec": "Thực thi lệnh shell trong workspace và trả về stdout/stderr",
-      "web_search": "Tìm kiếm thông tin trên web bằng công cụ tìm kiếm (Brave hoặc DuckDuckGo)",
+      "web_search": "Tìm kiếm thông tin hiện tại trên web bằng Tavily",
       "web_fetch": "Tải trang web hoặc API endpoint và trích xuất nội dung văn bản",
       "memory_search": "Tìm kiếm trong bộ nhớ dài hạn của agent bằng độ tương đồng ngữ nghĩa",
       "memory_get": "Lấy tài liệu bộ nhớ cụ thể theo đường dẫn tệp",

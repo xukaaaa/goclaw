@@ -26,6 +26,7 @@ type lifecycleDeps struct {
 	sched             *scheduler.Scheduler
 	heartbeatTicker   *heartbeat.Ticker
 	quotaChecker      *channels.QuotaChecker
+	webSearchTool     *tools.WebSearchTool
 	webFetchTool      *tools.WebFetchTool
 	ttsTool           *tools.TtsTool
 	sandboxMgr        sandbox.Manager
@@ -82,6 +83,30 @@ func (d *gatewayDeps) runLifecycle(
 			return
 		}
 		deps.webFetchTool.UpdatePolicy(updatedCfg.Tools.WebFetch.Policy, updatedCfg.Tools.WebFetch.AllowedDomains, updatedCfg.Tools.WebFetch.BlockedDomains)
+	})
+
+	// Reload web_search provider on config changes via pub/sub.
+	d.msgBus.Subscribe("websearch-config-reload", func(evt bus.Event) {
+		if evt.Name != bus.TopicConfigChanged {
+			return
+		}
+		updatedCfg, ok := evt.Payload.(*config.Config)
+		if !ok || deps.webSearchTool == nil {
+			return
+		}
+		if d.pgStores.ConfigSecrets != nil {
+			if secrets, err := d.pgStores.ConfigSecrets.GetAll(context.Background()); err == nil && len(secrets) > 0 {
+				updatedCfg.ApplyDBSecrets(secrets)
+			} else if err != nil {
+				slog.Warn("web_search config reload could not load DB secrets", "error", err)
+			}
+		}
+		updatedCfg.ApplyEnvOverrides()
+		deps.webSearchTool.UpdateConfig(tools.WebSearchConfigFromConfig(updatedCfg))
+		if d.agentRouter != nil {
+			d.agentRouter.InvalidateAll()
+		}
+		slog.Info("web_search config reloaded")
 	})
 
 	// Reload TTS providers on config changes via pub/sub.

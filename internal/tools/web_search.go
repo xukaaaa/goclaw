@@ -2,10 +2,12 @@ package tools
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -14,25 +16,13 @@ const (
 	defaultSearchCount   = 5
 	maxSearchCount       = 10
 	searchTimeoutSeconds = 30
-	braveSearchEndpoint  = "https://api.search.brave.com/res/v1/web/search"
-	exaSearchEndpoint    = "https://api.exa.ai/search"
 	tavilySearchEndpoint = "https://api.tavily.com/search"
 	webSearchUserAgent   = "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_7_2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 )
 
 const (
-	searchProviderExa        = "exa"
-	searchProviderTavily     = "tavily"
-	searchProviderBrave      = "brave"
-	searchProviderDuckDuckGo = "duckduckgo"
+	searchProviderTavily = "tavily"
 )
-
-var defaultSearchProviderOrder = []string{
-	searchProviderExa,
-	searchProviderTavily,
-	searchProviderBrave,
-	searchProviderDuckDuckGo,
-}
 
 // SearchProvider abstracts a web search backend.
 type SearchProvider interface {
@@ -84,26 +74,85 @@ func normalizeFreshness(value string) string {
 
 // WebSearchTool implements the web_search tool matching TS src/agents/tools/web-search.ts.
 type WebSearchTool struct {
-	providers []SearchProvider
-	cache     *webCache
+	mu            sync.RWMutex
+	provider      *tavilySearchProvider
+	defaultConfig WebSearchConfig
+	cache         *webCache
 }
 
 func NewWebSearchTool(cfg WebSearchConfig) *WebSearchTool {
-	providers := buildSearchProviders(cfg)
-
-	if len(providers) == 0 {
-		return nil
-	}
-
 	ttl := cfg.CacheTTL
 	if ttl <= 0 {
 		ttl = defaultCacheTTL
 	}
 
-	return &WebSearchTool{
-		providers: providers,
-		cache:     newWebCache(defaultCacheMaxEntries, ttl),
+	tool := &WebSearchTool{
+		defaultConfig: cfg,
+		cache:         newWebCache(defaultCacheMaxEntries, ttl),
 	}
+	tool.applyConfigLocked(cfg)
+	return tool
+}
+
+func (t *WebSearchTool) UpdateConfig(cfg WebSearchConfig) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.defaultConfig = cfg
+	t.applyConfigLocked(cfg)
+	t.cache.clear()
+}
+
+func (t *WebSearchTool) applyConfigLocked(cfg WebSearchConfig) {
+	if !cfg.TavilyEnabled || strings.TrimSpace(cfg.TavilyAPIKey) == "" {
+		t.provider = nil
+		return
+	}
+	t.provider = newTavilySearchProvider(cfg.TavilyAPIKey, cfg.TavilyMaxResults)
+}
+
+type webSearchOverride struct {
+	Tavily struct {
+		Enabled    *bool  `json:"enabled,omitempty"`
+		APIKey     string `json:"api_key,omitempty"`
+		MaxResults *int   `json:"max_results,omitempty"`
+	} `json:"tavily,omitempty"`
+}
+
+func (t *WebSearchTool) resolveProvider(ctx context.Context) *tavilySearchProvider {
+	t.mu.RLock()
+	cfg := t.defaultConfig
+	provider := t.provider
+	t.mu.RUnlock()
+
+	settings := BuiltinToolSettingsFromCtx(ctx)
+	if settings == nil {
+		return provider
+	}
+	raw, ok := settings["web_search"]
+	if !ok || len(raw) == 0 {
+		return provider
+	}
+
+	var override webSearchOverride
+	if err := json.Unmarshal(raw, &override); err != nil {
+		slog.Warn("web_search: failed to parse override, using defaults", "error", err)
+		return provider
+	}
+
+	resolved := cfg
+	if override.Tavily.Enabled != nil {
+		resolved.TavilyEnabled = *override.Tavily.Enabled
+	}
+	if override.Tavily.MaxResults != nil {
+		resolved.TavilyMaxResults = *override.Tavily.MaxResults
+	}
+	if apiKey := strings.TrimSpace(override.Tavily.APIKey); apiKey != "" {
+		resolved.TavilyAPIKey = apiKey
+	}
+	if !resolved.TavilyEnabled || strings.TrimSpace(resolved.TavilyAPIKey) == "" {
+		return nil
+	}
+	return newTavilySearchProvider(resolved.TavilyAPIKey, resolved.TavilyMaxResults)
 }
 
 func (t *WebSearchTool) Name() string { return "web_search" }
@@ -180,32 +229,22 @@ func (t *WebSearchTool) Execute(ctx context.Context, args map[string]any) *Resul
 		return NewResult(cached)
 	}
 
-	// Resolve per-request provider chain (tenant may reorder / disable providers
-	// via builtin_tool_tenant_configs.settings → ctx → ResolveWebSearchChain).
-	// Defaults preserved when no override — backward-compat.
-	chain := ResolveWebSearchChain(ctx, t.providers)
-
-	// Try providers in order (first success wins)
-	var lastErr error
-	for _, provider := range chain {
-		results, err := provider.Search(ctx, params)
-		if err != nil {
-			slog.Warn("web_search provider failed", "provider", provider.Name(), "error", err)
-			lastErr = err
-			continue
-		}
-
-		formatted := formatSearchResults(query, results, provider.Name())
-		wrapped := wrapExternalContent(formatted, "Web Search", false)
-
-		t.cache.set(cacheKey, wrapped)
-		return NewResult(wrapped)
+	provider := t.resolveProvider(ctx)
+	if provider == nil {
+		return ErrorResult("no search providers configured")
 	}
 
-	if lastErr != nil {
-		return ErrorResult(fmt.Sprintf("all search providers failed: %v", lastErr))
+	results, err := provider.Search(ctx, params)
+	if err != nil {
+		slog.Warn("web_search provider failed", "provider", provider.Name(), "error", err)
+		return ErrorResult("all search providers failed")
 	}
-	return ErrorResult("no search providers configured")
+
+	formatted := formatSearchResults(query, results, provider.Name())
+	wrapped := wrapExternalContent(formatted, "Web Search", false)
+
+	t.cache.set(cacheKey, wrapped)
+	return NewResult(wrapped)
 }
 
 func buildSearchCacheKey(p searchParams) string {

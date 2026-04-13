@@ -144,20 +144,18 @@
       "saving": "Saving..."
     },
     "searchChain": {
-      "title": "Web Search Provider Chain",
-      "description": "Drag to reorder search providers. First enabled provider with a valid API key is tried first.",
+      "title": "Web Search Settings",
+      "description": "Configure Tavily for the built-in web search tool.",
       "maxResults": "Max results",
-      "locked": "Always-on fallback",
       "cancel": "Cancel",
       "save": "Save",
       "saving": "Saving...",
       "providers": {
-        "exa": "Exa",
-        "tavily": "Tavily",
-        "brave": "Brave Search",
-        "duckduckgo": "DuckDuckGo"
+        "tavily": "Tavily"
       },
+      "providerHint": "Tavily is the only provider used by web_search.",
       "apiKey": "API Key",
+      "apiKeyHint": "Only enter a value when setting or replacing the stored key.",
       "apiKeySet": "✓ Key set",
       "apiKeyChange": "Change",
       "apiKeyPlaceholder": "Enter API key",
@@ -223,7 +221,7 @@
       "list_files": "List files and directories in a given path within the workspace",
       "edit": "Apply targeted search-and-replace edits to existing files without rewriting the entire file",
       "exec": "Execute a shell command in the workspace and return stdout/stderr",
-      "web_search": "Search the web for information using a search engine (Brave or DuckDuckGo)",
+      "web_search": "Search the web for current information using Tavily",
       "web_fetch": "Fetch a web page or API endpoint and extract its text content",
       "memory_search": "Search through the agent's long-term memory using semantic similarity",
       "memory_get": "Retrieve a specific memory document by its file path",

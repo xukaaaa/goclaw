@@ -36,9 +36,7 @@ func NewBuiltinToolsHandler(s store.BuiltinToolStore, tenantCfgs store.BuiltinTo
 // extracted, saved to config_secrets, and stripped from the persisted settings.
 var toolSecretKeys = map[string]map[string]string{
 	"web_search": {
-		"exa.api_key":    "tools.web.exa.api_key",
 		"tavily.api_key": "tools.web.tavily.api_key",
-		"brave.api_key":  "tools.web.brave.api_key",
 	},
 }
 

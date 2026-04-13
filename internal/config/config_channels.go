@@ -432,34 +432,13 @@ type ToolPolicySpec struct {
 }
 
 type WebToolsConfig struct {
-	ProviderOrder []string         `json:"provider_order,omitempty"`
-	Exa           ExaConfig        `json:"exa"`
-	Tavily        TavilyConfig     `json:"tavily"`
-	Brave         BraveConfig      `json:"brave"`
-	DuckDuckGo    DuckDuckGoConfig `json:"duckduckgo"`
-}
-
-type ExaConfig struct {
-	Enabled    bool   `json:"enabled"`
-	APIKey     string `json:"api_key"`
-	MaxResults int    `json:"max_results"`
+	Tavily TavilyConfig `json:"tavily"`
 }
 
 type TavilyConfig struct {
 	Enabled    bool   `json:"enabled"`
 	APIKey     string `json:"api_key"`
 	MaxResults int    `json:"max_results"`
-}
-
-type BraveConfig struct {
-	Enabled    bool   `json:"enabled"`
-	APIKey     string `json:"api_key"`
-	MaxResults int    `json:"max_results"`
-}
-
-type DuckDuckGoConfig struct {
-	Enabled    bool `json:"enabled"`
-	MaxResults int  `json:"max_results"`
 }
 
 // SessionsConfig controls session behavior.

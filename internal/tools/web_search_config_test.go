@@ -1,117 +1,123 @@
 package tools
 
 import (
-	"reflect"
+	"context"
 	"testing"
 )
 
-func TestNormalizeWebSearchProviderOrder_Empty(t *testing.T) {
-	got := NormalizeWebSearchProviderOrder(nil)
-	want := []string{"exa", "tavily", "brave", "duckduckgo"}
-	if !reflect.DeepEqual(got, want) {
-		t.Errorf("NormalizeWebSearchProviderOrder(nil) = %v, want %v", got, want)
+func TestNewWebSearchTool_TavilyConfigured(t *testing.T) {
+	tool := NewWebSearchTool(WebSearchConfig{
+		TavilyEnabled:    true,
+		TavilyAPIKey:     "tavily-key",
+		TavilyMaxResults: 7,
+	})
+	if tool == nil {
+		t.Fatal("expected tool to be created")
+	}
+	if tool.provider == nil {
+		t.Fatal("expected Tavily provider to be configured")
+	}
+	if got := tool.provider.Name(); got != searchProviderTavily {
+		t.Fatalf("provider name = %q, want %q", got, searchProviderTavily)
+	}
+	if got := tool.provider.maxResults; got != 7 {
+		t.Fatalf("provider maxResults = %d, want 7", got)
 	}
 }
 
-func TestNormalizeWebSearchProviderOrder_UserSpecified(t *testing.T) {
-	got := NormalizeWebSearchProviderOrder([]string{"brave", "exa"})
-	// brave first, exa second (user order), tavily appended, ddg last
-	want := []string{"brave", "exa", "tavily", "duckduckgo"}
-	if !reflect.DeepEqual(got, want) {
-		t.Errorf("got %v, want %v", got, want)
+func TestNewWebSearchTool_NoTavilyConfig(t *testing.T) {
+	tests := []struct {
+		name string
+		cfg  WebSearchConfig
+	}{
+		{
+			name: "disabled",
+			cfg: WebSearchConfig{TavilyEnabled: false, TavilyAPIKey: "tavily-key"},
+		},
+		{
+			name: "missing key",
+			cfg: WebSearchConfig{TavilyEnabled: true},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tool := NewWebSearchTool(tt.cfg)
+			if tool == nil {
+				t.Fatal("expected tool shell")
+			}
+			if tool.provider != nil {
+				t.Fatal("expected provider to be absent")
+			}
+		})
 	}
 }
 
-func TestNormalizeWebSearchProviderOrder_DDGIgnored(t *testing.T) {
-	// DDG in user order is ignored (always last)
-	got := NormalizeWebSearchProviderOrder([]string{"duckduckgo", "tavily"})
-	want := []string{"tavily", "exa", "brave", "duckduckgo"}
-	if !reflect.DeepEqual(got, want) {
-		t.Errorf("got %v, want %v", got, want)
+func TestWebSearchTool_UpdateConfig(t *testing.T) {
+	tool := NewWebSearchTool(WebSearchConfig{
+		TavilyEnabled:    true,
+		TavilyAPIKey:     "old-key",
+		TavilyMaxResults: 5,
+	})
+	if tool == nil {
+		t.Fatal("expected initial tool")
+	}
+
+	tool.UpdateConfig(WebSearchConfig{
+		TavilyEnabled:    true,
+		TavilyAPIKey:     "new-key",
+		TavilyMaxResults: 9,
+	})
+	if tool.provider == nil {
+		t.Fatal("expected provider after update")
+	}
+	if got := tool.provider.apiKey; got != "new-key" {
+		t.Fatalf("provider apiKey = %q, want new-key", got)
+	}
+	if got := tool.provider.maxResults; got != 9 {
+		t.Fatalf("provider maxResults = %d, want 9", got)
+	}
+
+	tool.UpdateConfig(WebSearchConfig{})
+	if tool.provider != nil {
+		t.Fatal("expected provider to be cleared when Tavily config is unavailable")
 	}
 }
 
-func TestNormalizeWebSearchProviderOrder_Dedup(t *testing.T) {
-	got := NormalizeWebSearchProviderOrder([]string{"exa", "exa", "brave"})
-	want := []string{"exa", "brave", "tavily", "duckduckgo"}
-	if !reflect.DeepEqual(got, want) {
-		t.Errorf("got %v, want %v", got, want)
+func TestWebSearchTool_ResolveProvider_UsesBuiltinOverride(t *testing.T) {
+	tool := NewWebSearchTool(WebSearchConfig{
+		TavilyEnabled:    true,
+		TavilyAPIKey:     "global-key",
+		TavilyMaxResults: 5,
+	})
+	ctx := WithBuiltinToolSettings(context.Background(), BuiltinToolSettings{
+		"web_search": []byte(`{"tavily":{"enabled":true,"max_results":8}}`),
+	})
+
+	provider := tool.resolveProvider(ctx)
+	if provider == nil {
+		t.Fatal("expected override provider")
+	}
+	if got := provider.maxResults; got != 8 {
+		t.Fatalf("provider maxResults = %d, want 8", got)
+	}
+	if got := provider.apiKey; got != "global-key" {
+		t.Fatalf("provider apiKey = %q, want global-key", got)
 	}
 }
 
-func TestNormalizeWebSearchProviderOrder_UnknownSkipped(t *testing.T) {
-	got := NormalizeWebSearchProviderOrder([]string{"bing", "tavily"})
-	want := []string{"tavily", "exa", "brave", "duckduckgo"}
-	if !reflect.DeepEqual(got, want) {
-		t.Errorf("got %v, want %v", got, want)
-	}
-}
+func TestWebSearchTool_ResolveProvider_DisableOverride(t *testing.T) {
+	tool := NewWebSearchTool(WebSearchConfig{
+		TavilyEnabled:    true,
+		TavilyAPIKey:     "global-key",
+		TavilyMaxResults: 5,
+	})
+	ctx := WithBuiltinToolSettings(context.Background(), BuiltinToolSettings{
+		"web_search": []byte(`{"tavily":{"enabled":false}}`),
+	})
 
-func TestBuildSearchProviders_AllEnabled(t *testing.T) {
-	cfg := WebSearchConfig{
-		ExaEnabled:    true,
-		ExaAPIKey:     "exa-key",
-		TavilyEnabled: true,
-		TavilyAPIKey:  "tavily-key",
-		BraveEnabled:  true,
-		BraveAPIKey:   "brave-key",
-		DDGEnabled:    true,
-	}
-	providers := buildSearchProviders(cfg)
-	names := make([]string, len(providers))
-	for i, p := range providers {
-		names[i] = p.Name()
-	}
-	want := []string{"exa", "tavily", "brave", "duckduckgo"}
-	if !reflect.DeepEqual(names, want) {
-		t.Errorf("got %v, want %v", names, want)
-	}
-}
-
-func TestBuildSearchProviders_OnlyBraveAndDDG(t *testing.T) {
-	cfg := WebSearchConfig{
-		BraveEnabled: true,
-		BraveAPIKey:  "brave-key",
-		DDGEnabled:   true,
-	}
-	providers := buildSearchProviders(cfg)
-	names := make([]string, len(providers))
-	for i, p := range providers {
-		names[i] = p.Name()
-	}
-	// Exa + Tavily not enabled, so only brave + ddg
-	want := []string{"brave", "duckduckgo"}
-	if !reflect.DeepEqual(names, want) {
-		t.Errorf("got %v, want %v", names, want)
-	}
-}
-
-func TestBuildSearchProviders_CustomOrder(t *testing.T) {
-	cfg := WebSearchConfig{
-		ProviderOrder: []string{"tavily", "brave"},
-		TavilyEnabled: true,
-		TavilyAPIKey:  "key",
-		BraveEnabled:  true,
-		BraveAPIKey:   "key",
-		DDGEnabled:    true,
-	}
-	providers := buildSearchProviders(cfg)
-	names := make([]string, len(providers))
-	for i, p := range providers {
-		names[i] = p.Name()
-	}
-	// tavily first (user), brave second, exa appended (no key so skipped), ddg last
-	want := []string{"tavily", "brave", "duckduckgo"}
-	if !reflect.DeepEqual(names, want) {
-		t.Errorf("got %v, want %v", names, want)
-	}
-}
-
-func TestBuildSearchProviders_NoProviders(t *testing.T) {
-	cfg := WebSearchConfig{}
-	providers := buildSearchProviders(cfg)
-	if len(providers) != 0 {
-		t.Errorf("expected empty providers, got %d", len(providers))
+	if provider := tool.resolveProvider(ctx); provider != nil {
+		t.Fatal("expected override to disable provider")
 	}
 }
 

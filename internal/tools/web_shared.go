@@ -89,6 +89,12 @@ func (c *webCache) set(key, value string) {
 	}
 }
 
+func (c *webCache) clear() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.entries = make(map[string]*cacheEntry)
+}
+
 func normalizeCacheKey(key string) string {
 	return strings.ToLower(strings.TrimSpace(key))
 }

@@ -10,9 +10,12 @@ import (
 	"time"
 )
 
+const tavilyMaxResponseBodyBytes = 1 << 20
+
 type tavilySearchProvider struct {
 	apiKey     string
 	maxResults int
+	endpoint   string
 	client     *http.Client
 }
 
@@ -20,6 +23,7 @@ func newTavilySearchProvider(apiKey string, maxResults int) *tavilySearchProvide
 	return &tavilySearchProvider{
 		apiKey:     apiKey,
 		maxResults: normalizeProviderMaxResults(maxResults),
+		endpoint:   tavilySearchEndpoint,
 		client:     &http.Client{Timeout: time.Duration(searchTimeoutSeconds) * time.Second},
 	}
 }
@@ -38,7 +42,7 @@ func (p *tavilySearchProvider) Search(ctx context.Context, params searchParams) 
 		return nil, fmt.Errorf("marshal request: %w", err)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, tavilySearchEndpoint, bytes.NewReader(requestBody))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, p.endpoint, bytes.NewReader(requestBody))
 	if err != nil {
 		return nil, fmt.Errorf("create request: %w", err)
 	}
@@ -53,7 +57,7 @@ func (p *tavilySearchProvider) Search(ctx context.Context, params searchParams) 
 	}
 	defer resp.Body.Close()
 
-	body, err := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(io.LimitReader(resp.Body, tavilyMaxResponseBodyBytes))
 	if err != nil {
 		return nil, fmt.Errorf("read response: %w", err)
 	}

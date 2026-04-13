@@ -30,8 +30,9 @@ import (
 
 // setupToolRegistry creates the tool registry and registers all tools.
 // Returns the registry, exec approval manager, MCP manager, sandbox manager,
-// browser manager (caller must defer Close), web fetch tool, TTS tool,
-// permission policy engine, tool policy engine, data directory, and resolved agent defaults.
+// browser manager (caller must defer Close), web search tool, web fetch tool,
+// TTS tool, permission policy engine, tool policy engine, data directory,
+// and resolved agent defaults.
 func setupToolRegistry(
 	cfg *config.Config,
 	workspace string,
@@ -42,6 +43,7 @@ func setupToolRegistry(
 	mcpMgr *mcpbridge.Manager,
 	sandboxMgr sandbox.Manager,
 	browserMgr *browser.Manager,
+	webSearchTool *tools.WebSearchTool,
 	webFetchTool *tools.WebFetchTool,
 	ttsTool *tools.TtsTool,
 	permPE *permissions.PolicyEngine,
@@ -116,9 +118,9 @@ func setupToolRegistry(
 	}
 
 	// Web tools (web_search + web_fetch)
-	webSearchTool := tools.NewWebSearchTool(tools.WebSearchConfigFromConfig(cfg))
-	if webSearchTool != nil {
-		toolsReg.Register(webSearchTool)
+	webSearchTool = tools.NewWebSearchTool(tools.WebSearchConfigFromConfig(cfg))
+	toolsReg.Register(webSearchTool)
+	if tools.WebSearchConfigFromConfig(cfg).TavilyEnabled && tools.WebSearchConfigFromConfig(cfg).TavilyAPIKey != "" {
 		slog.Info("web_search tool enabled")
 	}
 	webFetchTool = tools.NewWebFetchTool(tools.WebFetchConfig{

@@ -54,11 +54,11 @@ export function ToolsWebSection({ data, onSave, saving }: Props) {
   const handleSave = () => {
     const toSave: ToolsData = { ...draft };
     const web = { ...(toSave.web ?? {}) };
-    const brave = { ...(web.brave ?? {}) };
-    if (isSecret(brave.api_key)) {
-      delete brave.api_key;
+    const tavily = { ...(web.tavily ?? {}) };
+    if (isSecret(tavily.api_key)) {
+      delete tavily.api_key;
     }
-    web.brave = brave;
+    web.tavily = tavily;
     toSave.web = web;
     onSave(toSave);
   };
@@ -66,8 +66,7 @@ export function ToolsWebSection({ data, onSave, saving }: Props) {
   if (!data) return null;
 
   const web = draft.web ?? {};
-  const ddg = web.duckduckgo ?? {};
-  const brave = web.brave ?? {};
+  const tavily = web.tavily ?? {};
   const webFetch = draft.web_fetch ?? {};
   const browser = draft.browser ?? {};
 
@@ -82,10 +81,10 @@ export function ToolsWebSection({ data, onSave, saving }: Props) {
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <Label>DuckDuckGo</Label>
+              <Label>{t("tools.tavily")}</Label>
               <Switch
-                checked={ddg.enabled !== false}
-                onCheckedChange={(v) => updateNested("web", { duckduckgo: { ...ddg, enabled: v } })}
+                checked={tavily.enabled ?? false}
+                onCheckedChange={(v) => updateNested("web", { tavily: { ...tavily, enabled: v } })}
               />
             </div>
             <div className="grid gap-1.5">
@@ -93,47 +92,28 @@ export function ToolsWebSection({ data, onSave, saving }: Props) {
               <Input
                 type="number"
                 className="text-base md:text-sm"
-                value={ddg.max_results ?? ""}
-                onChange={(e) => updateNested("web", { duckduckgo: { ...ddg, max_results: Number(e.target.value) } })}
+                value={tavily.max_results ?? ""}
+                onChange={(e) => updateNested("web", { tavily: { ...tavily, max_results: Number(e.target.value) } })}
                 placeholder="5"
                 min={1}
+                max={10}
               />
             </div>
-          </div>
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label>Brave Search</Label>
-              <Switch
-                checked={brave.enabled ?? false}
-                onCheckedChange={(v) => updateNested("web", { brave: { ...brave, enabled: v } })}
-              />
-            </div>
-            <div className="grid gap-1.5">
-              <Label className="text-xs text-muted-foreground">{t("tools.maxResults")}</Label>
-              <Input
-                type="number"
-                className="text-base md:text-sm"
-                value={brave.max_results ?? ""}
-                onChange={(e) => updateNested("web", { brave: { ...brave, max_results: Number(e.target.value) } })}
-                placeholder="5"
-                min={1}
-              />
-            </div>
-            {brave.enabled && (
+            {tavily.enabled && (
               <div className="grid gap-1.5">
-                <InfoLabel tip={t("tools.braveApiKeyTip")}>{t("tools.braveApiKey")}</InfoLabel>
+                <InfoLabel tip={t("tools.tavilyApiKeyTip")}>{t("tools.tavilyApiKey")}</InfoLabel>
                 <Input
                   type="password"
                   className="text-base md:text-sm"
-                  value={isSecret(brave.api_key) ? "" : (brave.api_key ?? "")}
+                  value={isSecret(tavily.api_key) ? "" : (tavily.api_key ?? "")}
                   onChange={(e) =>
-                    updateNested("web", { brave: { ...brave, api_key: e.target.value } })
+                    updateNested("web", { tavily: { ...tavily, api_key: e.target.value } })
                   }
-                  placeholder={t("tools.braveApiKeyPlaceholder")}
+                  placeholder={t("tools.tavilyApiKeyPlaceholder")}
                   autoComplete="off"
                 />
-                {isSecret(brave.api_key) && (
-                  <p className="text-xs text-muted-foreground">{t("tools.braveApiKeyManaged")}</p>
+                {isSecret(tavily.api_key) && (
+                  <p className="text-xs text-muted-foreground">{t("tools.tavilyApiKeyManaged")}</p>
                 )}
               </div>
             )}

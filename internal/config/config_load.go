@@ -47,7 +47,7 @@ func Default() *Config {
 		},
 		Tools: ToolsConfig{
 			Web: WebToolsConfig{
-				DuckDuckGo: DuckDuckGoConfig{Enabled: true, MaxResults: 5},
+				Tavily: TavilyConfig{Enabled: false, MaxResults: 5},
 			},
 			Browser: BrowserToolConfig{
 				Enabled:  true,
@@ -129,6 +129,7 @@ func (c *Config) applyEnvOverrides() {
 	envStr("GOCLAW_TTS_OPENAI_API_KEY", &c.Tts.OpenAI.APIKey)
 	envStr("GOCLAW_TTS_ELEVENLABS_API_KEY", &c.Tts.ElevenLabs.APIKey)
 	envStr("GOCLAW_TTS_MINIMAX_API_KEY", &c.Tts.MiniMax.APIKey)
+	envStr("GOCLAW_TAVILY_API_KEY", &c.Tools.Web.Tavily.APIKey)
 	envStr("GOCLAW_TTS_MINIMAX_GROUP_ID", &c.Tts.MiniMax.GroupID)
 
 	// Auto-enable channels if credentials are provided via env

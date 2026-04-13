@@ -58,20 +58,18 @@
       "title": "知识图谱设置"
     },
     "searchChain": {
-      "title": "网页搜索 Provider 链",
-      "description": "拖动以重新排序搜索 Provider。第一个已启用且具有有效 API Key 的 Provider 将被优先尝试。",
+      "title": "网页搜索设置",
+      "description": "为内置 web_search 工具配置 Tavily。",
       "maxResults": "最大结果数",
-      "locked": "始终启用的回退",
       "cancel": "取消",
       "save": "保存",
       "saving": "保存中...",
       "providers": {
-        "exa": "Exa",
-        "tavily": "Tavily",
-        "brave": "Brave Search",
-        "duckduckgo": "DuckDuckGo"
+        "tavily": "Tavily"
       },
+      "providerHint": "web_search 仅使用 Tavily 作为提供方。",
       "apiKey": "API Key",
+      "apiKeyHint": "仅在设置或替换已保存密钥时输入值。",
       "apiKeySet": "✓ 已设置",
       "apiKeyChange": "更换",
       "apiKeyPlaceholder": "输入 API Key",
@@ -159,7 +157,7 @@
       "list_files": "列出工作区中指定路径下的文件和目录",
       "edit": "对现有文件应用搜索替换编辑，无需重写整个文件",
       "exec": "在工作区中执行Shell命令并返回stdout/stderr",
-      "web_search": "使用搜索引擎（Brave或DuckDuckGo）在网上搜索信息",
+      "web_search": "使用 Tavily 在网上搜索当前信息",
       "web_fetch": "获取网页或API端点并提取文本内容",
       "memory_search": "使用语义相似度搜索Agent的长期记忆",
       "memory_get": "按文件路径检索特定记忆文档",
